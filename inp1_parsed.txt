@@ -1,0 +1,13 @@
+P1 Ready P3 Running P5 Ready P7 Ready P8 Ready end
+P3 requests disk P7 dispatched 
+P7 expires P8 dispatched 
+P8 requests keyboard P5 dispatched 
+P5 requests disk P7 dispatched 
+P7 requests printer P1 dispatched 
+P7 out 
+P5 interrupt 
+P3 interrupt 
+P1 terminated 
+P7 interrupt 
+P7 in 
+P8 interrupt 
