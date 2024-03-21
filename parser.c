@@ -10,6 +10,16 @@
 CHANGE fp1 AND fp2 IN BOTH PARSER() AND MAIN() ACCORDING TO
 THE INPUT FILE THAT YOU WANT TO USE
 
+In the past lab exercise, we had events in the text file that triggered a swap 
+such as P15 is swapped out; but in this Lab the threshold triggers the swap.
+
+Processes are swapped in when other Processes terminate, therefore, 
+there will be no event such as P11 is swapped in; in your input text file. 
+Instead, a process terminating and moving to the Exit state triggers a swap into 
+memory.
+
+Will need a blocked tracker, keeping track of the number of blocked processes
+in relation to the total processes to check if it hit the threshold
 */
 
 struct Process {
@@ -144,7 +154,6 @@ int main()
         // Save the user choice in integer form
 		usr_choice = atoi(buffer);
     }
-	return 0;
 	FILE* fp1;
 	FILE* fp2;
 	fp1 = fopen("inp2.txt", "r");			//open the original input file
