@@ -10,16 +10,16 @@
 CHANGE fp1 AND fp2 IN BOTH PARSER() AND MAIN() ACCORDING TO
 THE INPUT FILE THAT YOU WANT TO USE
 
-In the past lab exercise, we had events in the text file that triggered a swap 
-such as P15 is swapped out; but in this Lab the threshold triggers the swap.
+To Do:
+Once a process goes into blocked state and it meets the threshold, swap out that
+same process [DONE]
 
-Processes are swapped in when other Processes terminate, therefore, 
-there will be no event such as P11 is swapped in; in your input text file. 
-Instead, a process terminating and moving to the Exit state triggers a swap into 
-memory.
+When a process exits/terminates, swap back in the latest process
+Use a circular queue (FIFO) to determine which process is swapped back in [DONE]
 
 Will need a blocked tracker, keeping track of the number of blocked processes
-in relation to the total processes to check if it hit the threshold
+in relation to the total processes to check if it hit the threshold [DONE]
+
 */
 
 struct Process {
@@ -144,15 +144,25 @@ int main()
 {
 	parser(); // run parser and stored parsed information in inp1_parsed.txt
 	char buffer[2];
-	int usr_choice;
+	float usr_threshold;
 	printf("Choose the swapping threshold:\n");
 	printf("1. 80%%\n");
 	printf("2. 90%%\n");
 	printf("3. 100%%\n");
 	// Ask the user to choose the threshold
 	if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        // Save the user choice in integer form
-		usr_choice = atoi(buffer);
+        // Save the user threshold
+		switch(atoi(buffer)){
+			case 1:
+				usr_threshold = 0.8;
+				break;
+			case 2:
+				usr_threshold = 0.9;
+				break;
+			case 3:
+				usr_threshold = 1.0;
+				break;
+		}
     }
 	FILE* fp1;
 	FILE* fp2;
@@ -162,8 +172,14 @@ int main()
 	char str1[200];
 	const char delim[] = " ";
 	int curr_processes[20];
+	int blocked_circular_queue[20];				// keep track of which process to swap in
+	int blocked_q_rear = 0;						// keep track of q index to update
+	int blocked_q_front = 0;					// keep track of q index to swap in
+	int total_processes = 0;					// # of processes
+	int blocked_processes = 0;					// keep track of # of blocked processes
+	int process_threshold;
 	int first = 0;
-
+	
 	struct Process processes[20];			// Create an array of 20 processes
 	// dynamically allocate memory for each q in case it overflows
 	char* printer_q=(char*)malloc(10 * sizeof(char));
@@ -194,7 +210,7 @@ int main()
 		char* token_next;
 		while (token != NULL)			// separate lines of parsed file by spaces; token is the tokenized parts of the string
 		{
-			if (first == 0) {			// check if first line, go to next if so
+			if (first == 0) {			// check if first line, store process info
 				char temp[200];
 				strcpy(temp, str);
 				char* temp_cp = strtok(temp, delim);
@@ -202,6 +218,7 @@ int main()
 				while (strcmp(temp_cp, "end\n") != 0) {
 					if (temp_cp[0] == 'P') {
 						curr_processes[i] = atoi(temp_cp + 1);
+						total_processes = total_processes + 1;
 						i++;
 					}
 					else {
@@ -209,6 +226,7 @@ int main()
 					}
 					temp_cp = strtok(NULL, delim);
 				}
+				process_threshold = total_processes*usr_threshold; // determine the # of processes for threshold
 				break;
 			}
 			//printf("%s\n", token);
@@ -227,6 +245,7 @@ int main()
 				//printf("token_next is (%s)\n", token_next);
 				if (strcmp(token_next, "requests") == 0) {				   // compares value at memory addr of token_next with corresponding state
 					token_next = strtok(NULL, delim);
+					blocked_processes = blocked_processes + 1;
 					if (strcmp(token_next, "disk") == 0) {
 						strcpy(processes[temp_id - 1].queue, "disk");
 						if (strcmp(disk_q, "") != 0) {
@@ -258,6 +277,14 @@ int main()
 						}
 					}
 					strcpy(processes[temp_id - 1].state, "Blocked*");
+					
+					// Check if process needs to be swapped out
+					if(blocked_processes==process_threshold){
+						strcpy(processes[temp_id - 1].state, "Blocked/Suspended*");	// Suspend blocked state
+						// Store in process id in circular q and keep track of next index
+						blocked_circular_queue[blocked_q_rear] = temp_id - 1;
+						blocked_q_rear = blocked_q_rear + 1;
+					}					
 					prev_id[prev_track] = temp_id - 1;
 					prev_track++;
 				}
@@ -280,7 +307,24 @@ int main()
 					strcpy(processes[temp_id - 1].state, "Exit*");
 					prev_id[prev_track] = temp_id - 1;
 					prev_track++;
+
+					// Update total processes and new process threshold
+					total_processes = total_processes - 1;
+					process_threshold = usr_threshold*total_processes;
+					// Swap back in latest process
+					size_t temp_size = strlen(processes[blocked_circular_queue[blocked_q_front]].state);
+					if (processes[blocked_circular_queue[blocked_q_front]].state[temp_size-1] == '*') {
+						processes[blocked_circular_queue[blocked_q_front]].state[temp_size - 11] = '\0';
+					}
+					else {
+						processes[blocked_circular_queue[blocked_q_front]].state[temp_size - 10] = '\0';
+					}
+					strcat(processes[blocked_circular_queue[blocked_q_front]].state, "*");
+					blocked_circular_queue[blocked_q_front] = -1;			// update index to be read already
+					blocked_q_front = blocked_q_front + 1;					// update front index
+
 				}
+				/*
 				else if (strcmp(token_next, "out") == 0) {
 					// check if running
 					if ((strcmp(processes[temp_id - 1].state, "Running") == 0) || (strcmp(processes[temp_id - 1].state, "Running*") == 0)) {
@@ -294,6 +338,7 @@ int main()
 						prev_track++;
 					}
 				}
+				
 				else if (strcmp(token_next, "in") == 0) {
 					size_t temp_size = strlen(processes[temp_id - 1].state);
 					if (processes[temp_id - 1].state[temp_size-1] == '*') {
@@ -306,7 +351,10 @@ int main()
 					prev_id[prev_track] = temp_id - 1;
 					prev_track++;
 				}
+				*/
 				else if (strcmp(token_next, "interrupt") == 0) {
+					// Update amount of blocked processes
+					blocked_processes = blocked_processes - 1;
 					if (strcmp(processes[temp_id - 1].state, "Blocked") == 0) {
 						strcpy(processes[temp_id - 1].state, "Ready*");
 						if (strcmp(processes[temp_id - 1].queue, "disk") == 0) {
